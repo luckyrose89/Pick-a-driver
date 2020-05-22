@@ -37,7 +37,7 @@
   <body>
     <h1>Who's Driving?</h1>
 
-    <div id="app"></div>
+    <div id="app" aria-live="polite"></div>
 
     <form id="add-driver">
       <label for="driver-name"
@@ -68,22 +68,49 @@
       };
 
       /**
+       * Randomly shuffle an array
+       * https://stackoverflow.com/a/2450976/1293256
+       * @param  {Array} array The array to shuffle
+       * @return {String}      The first item in the shuffled array
+       */
+      var shuffle = function (array) {
+        var currentIndex = array.length;
+        var temporaryValue, randomIndex;
+
+        // While there remain elements to shuffle...
+        while (0 !== currentIndex) {
+          // Pick a remaining element...
+          randomIndex = Math.floor(Math.random() * currentIndex);
+          currentIndex -= 1;
+
+          // And swap it with the current element.
+          temporaryValue = array[currentIndex];
+          array[currentIndex] = array[randomIndex];
+          array[randomIndex] = temporaryValue;
+        }
+
+        return array;
+      };
+
+      /**
        * Methods
        */
 
       var app = new Component("#app", {
         data: {
-          drivers: ["Pinky", "Bablu", "Chintu"],
-          selected: "Chintu",
+          drivers: [],
+          selected: null,
         },
         template: function (props) {
+          // save drivers to the local storage
+          localStorage.setItem("drivers", JSON.stringify(props.drivers));
           //Check if there are drivers in the list
           if (props.drivers.length < 1) {
             return "<p><em> Add drivers to the list using the form given below.</em></p>";
           }
 
           var selected = "";
-          if (props.selected) {
+          if (props.selected !== null) {
             selected =
               "<p><strong>" + props.selected + " is driving.<strong></p>";
           }
@@ -111,6 +138,83 @@
         },
       });
 
+      /*
+       ** Pick a driver from drivers
+       */
+
+      var pickDriver = function () {
+        // get data from the app
+        var appData = app.getData();
+
+        // check if there are drivers in app's driver array
+        if (appData.drivers.length < 2) {
+          alert("Oops! try adding more drivers with the form below");
+          return;
+        }
+
+        // shuffle the arrary of drivers and select a driver
+        shuffle(appData.drivers);
+        var selected = appData.drivers[0];
+
+        // check if a driver gets selected repeatedly
+        if (appData.selected && selected === appData.selected) {
+          selected = appData.drivers[1];
+        }
+
+        // update UI based on new selected driver
+
+        app.setData({ selected: selected });
+      };
+
+      /**
+       * remove a driver
+       */
+
+      var removeDriver = function (driver) {
+        var appData = app.getData();
+
+        // remove a driver from driver array
+        appData.drivers.splice(driver, 1);
+
+        app.setData({ drivers: appData.drivers });
+      };
+
+      /**
+       * Remove all drivers
+       */
+
+      var clearDrivers = function () {
+        // confirm if user wants to remove all drivers
+        if (!confirm("Are you sure, you want to delete all drivers?")) return;
+        app.setData({
+          drivers: [],
+          selected: null,
+        });
+      };
+
+      /*
+       ** Handle clicks in the document
+       */
+
+      var clickHandler = function (event) {
+        // pick a driver for selected
+        if (event.target.id === "pick-driver") {
+          pickDriver();
+        }
+
+        // remlove a driver from list
+        var driver = event.target.getAttribute("data-driver");
+        if (driver) {
+          removeDriver(driver);
+          return;
+        }
+
+        // remove all drivers
+        if (event.target.id === "clear-drivers") {
+          clearDrivers();
+        }
+      };
+
       var submitHandler = function (event) {
         //if the target is not the form
         if (event.target.id !== "add-driver") return;
@@ -137,9 +241,14 @@
        */
 
       document.addEventListener("submit", submitHandler, false);
-
-      // render the app
-      app.render();
+      document.addEventListener("click", clickHandler, false);
+      // check local storage & render the app
+      var saved = localStorage.getItem("drivers");
+      if (saved) {
+        app.setData({ drivers: JSON.parse(saved) });
+      } else {
+        app.render();
+      }
     </script>
   </body>
 </html>
